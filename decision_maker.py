@@ -61,6 +61,8 @@ class DecisionMaker(nn.Module):
 
         self._tokenizer: Optional[PreTrainedTokenizerBase] = None
         self._init_model_and_tokenizer()
+        self._device_logged = False
+        self._log_device_state()
 
         # Register a dummy buffer so ``to()`` works as expected when scripting.
         self.register_buffer("_device_buffer", torch.zeros(1), persistent=False)
@@ -105,6 +107,18 @@ class DecisionMaker(nn.Module):
         )
         self.model.to(self._device_str)
         self.model.eval()
+
+    @torch.jit.ignore
+    def _log_device_state(self) -> None:
+        if getattr(self, "_device_logged", False):
+            return
+        param = next(self.model.parameters(), None)
+        model_device = param.device if param is not None else torch.device(self._device_str)
+        model_dtype = param.dtype if param is not None else (self._dtype or torch.float32)
+        print(
+            f"[DecisionMaker] Model '{self.model_name}' initialized on {model_device} (dtype={model_dtype})"
+        )
+        self._device_logged = True
 
     @torch.jit.ignore
     def get_tokenizer(self) -> PreTrainedTokenizerBase:
@@ -180,6 +194,7 @@ class DecisionMaker(nn.Module):
         attention_mask = encoded.get("attention_mask")
         if attention_mask is not None:
             attention_mask = attention_mask.to(self.device())
+        print(f"[DecisionMaker] Prompt tensors placed on device {input_ids.device}")
 
         generated = self.generate(
             input_ids,
@@ -206,6 +221,8 @@ class DecisionMaker(nn.Module):
         self._device_str = str(device)
         self.model.to(device)
         self._device_buffer = self._device_buffer.to(device)
+        self._device_logged = False
+        self._log_device_state()
         return self
 
     @torch.jit.ignore
