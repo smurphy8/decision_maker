@@ -1,9 +1,3 @@
-Make a Readme
-
-
-I'll create a README file for this `decision_maker.py` module that explains its purpose, features, and usage.Now I'll write a comprehensive README for the DecisionMaker module:
-
-```markdown
 # DecisionMaker
 
 A PyTorch wrapper for Hugging Face causal language models with TorchScript support.
@@ -40,6 +34,8 @@ print(response.text)
 ```
 
 ## Usage Examples
+### One liner
+`$>  uv run main.py --export-torchscript decision_maker.pt --model deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`
 
 ### Basic Generation
 
@@ -156,24 +152,3 @@ The module includes a context manager (`_torchscript_mask_patch`) that replaces 
 ### Automatic Tokenizer Configuration
 
 The module automatically handles missing pad tokens by reusing the EOS token when necessary, ensuring compatibility with various model configurations.
-
-## License
-
-[Specify your license here]
-
-## Contributing
-
-[Add contribution guidelines if applicable]
-```
-
-This README provides:
-- Clear overview of the module's purpose
-- Key features and benefits
-- Installation instructions
-- Quick start example
-- Comprehensive usage examples
-- Full API documentation
-- Technical details about TorchScript support
-- Requirements and compatibility information
-
-The README is structured to help users quickly understand what the DecisionMaker class does and how to use it effectively.
