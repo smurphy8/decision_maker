@@ -187,7 +187,7 @@ class DecisionMaker(nn.Module):
         top_p: Optional[float] = None,
         return_full_text: bool = False,
     ) -> GenerationResult:
-        """Encode a single prompt string, generate tokens, and decode the output."""
+       """Encode a single prompt string, generate tokens, and decode the output."""
         tokenizer = self.get_tokenizer()
         encoded = tokenizer(prompt, return_tensors="pt")
         input_ids = encoded["input_ids"].to(self.device())
