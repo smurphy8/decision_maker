@@ -55,6 +55,7 @@ Common options:
 - `--batch-size` (default: `1`)
 - `--without-mask` (trace without `attention_mask`)
 - `--output` (default: `decision_maker_inferno.pt`)
+- `--export-tokenizer` (save a TorchScript tokenizer sidecar using local assets)
 - `--test-forward` (run a quick post-export forward)
 - `--tokenizer` (local tokenizer path for the test; default: `tokenizer_config`)
 
@@ -72,6 +73,9 @@ uv run decision_maker_inferno.py --without-mask
 
 # Use specific device and dtype
 uv run decision_maker_inferno.py --device cuda:0 --dtype float16 --test-forward
+
+# Export model and a TorchScript tokenizer sidecar
+uv run decision_maker_inferno.py --export-tokenizer tokenizer_ts.pt
 ```
 
 ### Basic Generation
@@ -134,7 +138,54 @@ loaded = torch.jit.load("decision_maker.pt")
 output = loaded(input_ids, attention_mask)
 ```
 
+### Tokenizer Trace
+
+Print a structured tokenizer trace (ids, tokens, and offsets when available):
+
+```bash
+uv run main.py --model gpt2 --prompt "Hello, world" --trace-tokenizer
+```
+
+From Python, you can access the same information:
+
+```python
+maker = DecisionMaker("gpt2")
+trace = maker.tokenizer_trace("Hello, world")
+print(trace.input_ids)
+print(trace.tokens)
+print(trace.offsets)  # may be None when offsets are unsupported
+```
+
 ### TracerWarnings Explained
+
+### TorchScript Tokenizer (Experimental)
+
+You can export a TorchScript-compatible ByteLevel BPE tokenizer that consumes raw bytes and returns token ids. This is useful when your deployment stack only supports TorchScript modules.
+
+Export and smoke test:
+
+```bash
+uv run tokenizer_ts.py --test --output tokenizer_ts.pt
+```
+
+Use from Python:
+
+```python
+import torch
+
+# Load scripted tokenizer
+tok = torch.jit.load("tokenizer_ts.pt")
+
+# Encode a UTF-8 string as bytes and run the tokenizer
+prompt = "Hello from TorchScript tokenizer!\n"
+inp = torch.tensor(list(prompt.encode("utf-8")), dtype=torch.long)
+input_ids, attention_mask = tok(inp, max_length=128, add_eos=True)
+```
+
+Notes:
+- This implementation is ByteLevel BPE and uses the local `tokenizer_config/tokenizer.json` vocabulary and merges.
+- It segmentizes by whitespace and applies BPE merges; for typical ASCII text it aligns well with HF fast tokenizers, though it does not replicate the exact regex-based pretokenizer, so certain edge cases can differ.
+- Input must be a 1D tensor of byte values; convert your prompt to UTF-8 bytes in your host environment before calling.
 When exporting via tracing, you may see warnings like:
 
 - `TracerWarning: Converting a tensor to a Python boolean/list ...`

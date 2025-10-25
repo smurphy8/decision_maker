@@ -49,6 +49,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="If set, export a scripted DecisionMaker module to the given .pt path.",
     )
     parser.add_argument(
+        "--trace-tokenizer",
+        action="store_true",
+        help="Print a tokenizer trace (ids, tokens, offsets if available) for the prompt.",
+    )
+    parser.add_argument(
         "--trace-sequence-length",
         type=int,
         default=8,
@@ -100,6 +105,30 @@ def main(argv: Optional[list[str]] = None) -> None:
         device=args.device,
         torch_dtype=args.torch_dtype,
     )
+
+    if args.trace_tokenizer:
+        trace = maker.tokenizer_trace(prompt)
+        try:
+            import json
+
+            print(
+                json.dumps(
+                    {
+                        "lengths": trace.lengths,
+                        "special_tokens": trace.special_tokens,
+                        "input_ids": trace.input_ids,
+                        "tokens": trace.tokens,
+                        "offsets": trace.offsets,
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                )
+            )
+        except Exception:
+            # Fallback to a compact, human-friendly printout
+            print("[TokenizerTrace] chars=", trace.lengths.get("chars"), "tokens=", trace.lengths.get("tokens"))
+            for i, (tid, tok) in enumerate(zip(trace.input_ids, trace.tokens)):
+                print(f"  {i:>3}: id={tid:<6} token={tok!r}")
 
     if args.export_torchscript:
         scripted = maker.as_torchscript(

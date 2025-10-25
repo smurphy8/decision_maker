@@ -38,6 +38,22 @@ class GenerationResult:
     prompt_length: int
 
 
+@dataclass
+class TokenizerTrace:
+    """Structured details of how a prompt is tokenized.
+
+    Offsets are provided when a fast tokenizer is available and offset
+    mapping is supported; otherwise, they will be None.
+    """
+
+    prompt: str
+    input_ids: list[int]
+    tokens: list[str]
+    offsets: Optional[list[Tuple[int, int]]]
+    special_tokens: Dict[str, Optional[str]]
+    lengths: Dict[str, int]
+
+
 class DecisionMaker(nn.Module):
     """Wrapper around a Hugging Face causal LM with single-prompt generation."""
 
@@ -133,6 +149,55 @@ class DecisionMaker(nn.Module):
         if self._tokenizer is None:
             raise RuntimeError("Tokenizer has not been initialized.")
         return self._tokenizer
+
+    @torch.jit.ignore
+    def tokenizer_trace(self, prompt: str) -> TokenizerTrace:
+        """Return a structured trace of tokenization for the given prompt.
+
+        Includes token ids, token strings, and (when available) character
+        offsets from a fast tokenizer. This method is Python-only and not
+        part of any TorchScript export.
+        """
+        tok = self.get_tokenizer()
+        is_fast = bool(getattr(tok, "is_fast", False))
+
+        encoded = tok(
+            prompt,
+            return_tensors="pt",
+            return_offsets_mapping=is_fast,
+            add_special_tokens=True,
+        )
+        input_ids = encoded["input_ids"][0].tolist()
+        tokens = tok.convert_ids_to_tokens(input_ids)
+
+        offsets: Optional[list[Tuple[int, int]]] = None
+        if is_fast and "offset_mapping" in encoded:
+            try:
+                # offset_mapping may be a tensor or list; normalize to list[tuple[int,int]]
+                raw = encoded["offset_mapping"][0]
+                try:
+                    raw_list = raw.tolist()  # type: ignore[assignment]
+                except Exception:
+                    raw_list = list(raw)
+                offsets = [(int(a), int(b)) for a, b in raw_list]
+            except Exception:
+                offsets = None
+
+        return TokenizerTrace(
+            prompt=prompt,
+            input_ids=input_ids,
+            tokens=tokens,
+            offsets=offsets,
+            special_tokens={
+                "bos": getattr(tok, "bos_token", None),
+                "eos": getattr(tok, "eos_token", None),
+                "pad": getattr(tok, "pad_token", None),
+            },
+            lengths={
+                "chars": len(prompt),
+                "tokens": len(input_ids),
+            },
+        )
 
     @torch.jit.ignore
     def device(self) -> torch.device:

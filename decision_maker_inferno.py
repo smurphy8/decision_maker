@@ -75,6 +75,13 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to save the traced TorchScript module.",
     )
     parser.add_argument(
+        "--export-tokenizer",
+        help=(
+            "Optional path to save a TorchScript ByteLevel BPE tokenizer sidecar. "
+            "Uses --tokenizer assets (default: ./tokenizer_config)."
+        ),
+    )
+    parser.add_argument(
         "--test-forward",
         action="store_true",
         help="After export, load the artifact and run a quick forward pass.",
@@ -190,6 +197,17 @@ def main(argv: Optional[list[str]] = None) -> None:
     )
     traced.save(args.output)
     print(f"Saved traced model to {args.output}")
+
+    # Optionally export a TorchScript-friendly tokenizer built from local assets
+    if args.export_tokenizer:
+        try:
+            from tokenizer_ts import build_scripted_tokenizer  # local module
+
+            tok = build_scripted_tokenizer(args.tokenizer)
+            tok.save(args.export_tokenizer)
+            print(f"Saved scripted tokenizer to {args.export_tokenizer}")
+        except Exception as e:
+            print(f"[inferno] Warning: failed to export tokenizer: {e}")
 
     if args.test_forward:
         run_test_forward(
