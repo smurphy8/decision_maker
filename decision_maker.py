@@ -100,11 +100,19 @@ class DecisionMaker(nn.Module):
         if hasattr(config, "_attn_implementation"):
             config._attn_implementation = "eager"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
-            self.model_name,
-            torch_dtype=self._dtype,
-            config=config,
-        )
+        # Use new `dtype` kwarg (preferred); fall back to `torch_dtype` for older HF versions.
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                dtype=self._dtype,
+                config=config,
+            )
+        except TypeError:
+            self.model = AutoModelForCausalLM.from_pretrained(
+                self.model_name,
+                torch_dtype=self._dtype,
+                config=config,
+            )
         self.model.to(self._device_str)
         self.model.eval()
 

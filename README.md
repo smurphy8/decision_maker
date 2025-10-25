@@ -37,6 +37,43 @@ print(response.text)
 ### One liner
 `$>  uv run main.py --export-torchscript decision_maker.pt --model deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`
 
+### Inferno Export CLI
+The `decision_maker_inferno.py` script exports a forward-only TorchScript module tailored for InfernoML and can optionally run a quick forward test using a local tokenizer.
+
+Basic export:
+
+```bash
+uv run decision_maker_inferno.py
+```
+
+Common options:
+
+- `--model` (default: `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B`)
+- `--device` (`cpu`, `cuda`, `cuda:0`)
+- `--dtype` (`float32`, `float16`, `bfloat16`)
+- `--sequence-length` (default: `8`)
+- `--batch-size` (default: `1`)
+- `--without-mask` (trace without `attention_mask`)
+- `--output` (default: `decision_maker_inferno.pt`)
+- `--test-forward` (run a quick post-export forward)
+- `--tokenizer` (local tokenizer path for the test; default: `tokenizer_config`)
+
+Examples:
+
+```bash
+# Export with custom shapes
+uv run decision_maker_inferno.py --sequence-length 16 --batch-size 1 --output decision_maker_inferno.pt
+
+# Export and verify with a quick forward test
+uv run decision_maker_inferno.py --test-forward
+
+# Export without an attention mask
+uv run decision_maker_inferno.py --without-mask
+
+# Use specific device and dtype
+uv run decision_maker_inferno.py --device cuda:0 --dtype float16 --test-forward
+```
+
 ### Basic Generation
 
 ```python
@@ -96,6 +133,14 @@ torch.jit.save(scripted_model, "decision_maker.pt")
 loaded = torch.jit.load("decision_maker.pt")
 output = loaded(input_ids, attention_mask)
 ```
+
+### TracerWarnings Explained
+When exporting via tracing, you may see warnings like:
+
+- `TracerWarning: Converting a tensor to a Python boolean/list ...`
+- `torch.tensor results are registered as constants in the trace ...`
+
+These arise from a tracing-friendly attention-mask shim active during export and are expected. They are safe to ignore for export purposes but indicate the trace is specialized to the shapes used during tracing (e.g., `sequence_length=8`, `batch_size=1`). If you need different shapes at inference time, re-export with the desired shapes.
 
 ## API Reference
 
