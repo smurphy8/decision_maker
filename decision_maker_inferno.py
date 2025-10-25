@@ -8,7 +8,8 @@ import torch
 import torch.export
 from torch import nn
 from decision_maker import DecisionMaker
-from torch.export import export, ExportedProgram
+
+
 
 class InfernoDecisionWrapper(nn.Module):
     def __init__(self) -> None:
@@ -19,19 +20,20 @@ class InfernoDecisionWrapper(nn.Module):
             temperature=0.9,
         )
 
-    def forward(self, x):
+    def forward(self, x) -> torch.Tensor:
         return self.model.generate_from_prompt(
             prompt=(
                 "Answer this Question: what is the capital of france?\n"
                 "Just give me the answer in one word.\n"
             ),
-            max_new_tokens=180,
-        )
+            max_new_tokens=180,)
 
 
 def main():    # Example usage of DecisionMaker within the InfernoMl framework 
     mp = InfernoDecisionWrapper()
-    rslt = mp.forward(torch.tensor([1, 2]))
+    args = (torch.tensor([1, 2]),)
+
+    rslt = mp.forward(args)
     print(rslt)
 
 if __name__ == "__main__":
